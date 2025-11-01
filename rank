@@ -1,14 +1,17 @@
--- ==================== Auto Farm Boss + UI ====================
+-- LocalScript (StarterPlayerScripts)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 local workspaceEnemies = workspace:WaitForChild("Enemies")
+
 local WeaponName = "Cid"
-
 local QuestCFrame = CFrame.new(13.1016293, 162.07843, -31.504425, 0.122840285, 0, -0.992426515, 0, 1, 0, 0.992426515, 0, 0.122840285)
+local SkillDistance = 10
+local lastTeleport = 0
 
+-- Mapping Quest -> Boss
 local questToBoss = {
     ["Mission Ryomen Sukuna"] = "Ryomen Sukuna [Level 1000]",
     ["Mission Rudo Surebrec"] = "Rudo Surebrec [Level 1000]",
@@ -18,16 +21,14 @@ local questToBoss = {
     ["Mission Turbo Granny"] = "Turbo Granny [Level 1000]"
 }
 
-local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Events"):WaitForChild("Input")
-
--- ==================== UI ====================
+-- ================= GUI =================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoBotGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 250, 0, 150)
+mainFrame.Size = UDim2.new(0, 250, 0, 180)
 mainFrame.Position = UDim2.new(0, 50, 0, 50)
 mainFrame.BackgroundColor3 = Color3.fromRGB(255,255,255)
 mainFrame.BackgroundTransparency = 0.9
@@ -50,37 +51,55 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -20, 0, 40)
 title.Position = UDim2.new(0, 10, 0, 10)
 title.BackgroundTransparency = 1
-title.Text = "Diverse piece"
+title.Text = "Auto Farm Boss"
 title.TextColor3 = Color3.fromRGB(0,0,0)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 20
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = mainFrame
 
--- ==================== ปุ่มเปิด/ปิด ====================
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 0, 50)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(0,0,0)
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 14
+statusLabel.Text = "Status: OFF"
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = mainFrame
+
+-- ================= ตัวแปรควบคุม =================
 getgenv().AutoBotEnabled = false
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(1, -20, 0, 40)
-button.Position = UDim2.new(0, 10, 0, 70)
-button.BackgroundColor3 = Color3.fromRGB(255,255,255)
-button.BackgroundTransparency = 0.7
-button.TextColor3 = Color3.fromRGB(0,0,0)
-button.Font = Enum.Font.Gotham
-button.TextSize = 16
-button.Text = "Auto Farm 🔴"
+-- ================= ปุ่มเปิด/ปิด =================
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(1, -20, 0, 40)
+toggleButton.Position = UDim2.new(0, 10, 0, 90)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+toggleButton.BackgroundTransparency = 0.7
+toggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+toggleButton.Font = Enum.Font.Gotham
+toggleButton.TextSize = 16
+toggleButton.Text = "Enable 🟢"
+toggleButton.Parent = mainFrame
 
 local uICornerBtn = Instance.new("UICorner")
 uICornerBtn.CornerRadius = UDim.new(0,12)
-uICornerBtn.Parent = button
-button.Parent = mainFrame
+uICornerBtn.Parent = toggleButton
 
-button.MouseButton1Click:Connect(function()
+toggleButton.MouseButton1Click:Connect(function()
     getgenv().AutoBotEnabled = not getgenv().AutoBotEnabled
-    button.Text = getgenv().AutoBotEnabled and "Auto Farm 🟢" or "Auto Farm 🔴"
+    if getgenv().AutoBotEnabled then
+        toggleButton.Text = "Disable 🔴"
+    else
+        toggleButton.Text = "Enable 🟢"
+    end
 end)
 
--- ==================== ฟังก์ชัน ====================
+-- ================= ฟังก์ชัน =================
+local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Events"):WaitForChild("Input")
+
 local function EquipWithRemote(toolName)
     local tool = player.Backpack:FindFirstChild(toolName) or player.Character:FindFirstChild(toolName)
     if tool and tool:IsA("Tool") then
@@ -95,9 +114,7 @@ local function useSkillRemote(skillKey)
     local tool = player.Character and player.Character:FindFirstChild(WeaponName)
     if not tool then return end
     local args = { "Tool", tool, skillKey, player.Character.HumanoidRootPart.Position }
-    pcall(function()
-        remote:FireServer(unpack(args))
-    end)
+    pcall(function() remote:FireServer(unpack(args)) end)
 end
 
 local function teleportTo(cf)
@@ -131,12 +148,10 @@ end
 spawn(function()
     while true do
         task.wait(1)
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player.Character then
             local char = workspace.Characters:FindFirstChild("pangAoife03")
             if char and not char:FindFirstChild("Armament Haki") then
-                pcall(function()
-                    remote:FireServer("Armament Haki")
-                end)
+                pcall(function() remote:FireServer("Armament Haki") end)
             end
         end
     end
@@ -146,23 +161,21 @@ end)
 spawn(function()
     while true do
         task.wait(1)
-        if player.Character then
-            EquipWithRemote(WeaponName)
-        end
+        if player.Character then EquipWithRemote(WeaponName) end
     end
 end)
 
 -- ==================== กด E อัตโนมัติ ====================
 spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(1)
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
         task.wait(0.05)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
     end
 end)
 
--- ==================== รับเควสอัตโนมัติ ====================
+-- ==================== รับเควส ====================
 spawn(function()
     while true do
         task.wait(1)
@@ -176,46 +189,42 @@ spawn(function()
     end
 end)
 
--- ==================== Auto เปิดเองทุก 10 วิ ====================
+-- ==================== Auto Farm Boss ====================
 spawn(function()
     while true do
-        task.wait(10)
-        if not getgenv().AutoBotEnabled then
-            getgenv().AutoBotEnabled = true
-            button.Text = "Auto Farm 🟢"
-        end
-    end
-end)
-
--- ==================== Auto Farm Boss (เช็คระยะก่อนใช้สกิล) ====================
-local SkillDistance = 10 -- ระยะที่ถือว่า "อยู่ใกล้บอส"
-
-spawn(function()
-    while true do
+        task.wait(0.1)
         if getgenv().AutoBotEnabled then
             local boss = getCurrentBoss()
             local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             if boss and hrp and boss:FindFirstChild("HumanoidRootPart") then
                 local distance = (hrp.Position - boss.HumanoidRootPart.Position).Magnitude
                 if distance > SkillDistance then
-                    -- วาปเข้าใกล้บอส
-                    hrp.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0,0,5)
+                    if tick() - lastTeleport > 0.2 then
+                        hrp.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0,0,5)
+                        lastTeleport = tick()
+                    end
                 else
-                    -- อยู่ใกล้แล้ว ปล่อยสกิล Z-X-C-V
+                    -- อยู่ใกล้บอสแล้ว ปล่อยสกิล Z-X-C-V
                     useSkillRemote("Z")
-                    task.wait(0.1)
+                    task.wait(0.15)
                     useSkillRemote("X")
-                    task.wait(0.1)
+                    task.wait(0.15)
                     useSkillRemote("C")
-                    task.wait(0.1)
+                    task.wait(0.15)
                     useSkillRemote("V")
+                    task.wait(0.2)
                 end
+                statusLabel.Text = "Status: Fighting Boss"
             else
-                -- บอสไม่เจอ วาปไปจุดรับเควส
-                teleportTo(QuestCFrame)
+                -- บอสไม่เกิด วาปไปจุดรับเควส
+                if tick() - lastTeleport > 0.5 then
+                    teleportTo(QuestCFrame)
+                    lastTeleport = tick()
+                end
+                statusLabel.Text = "Status: Going to Quest"
             end
         else
-            task.wait(0.05)
+            statusLabel.Text = "Status: OFF"
         end
     end
 end)
