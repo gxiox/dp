@@ -1,0 +1,217 @@
+-- ==================== Auto Farm Boss + UI ====================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local player = Players.LocalPlayer
+local workspaceEnemies = workspace:WaitForChild("Enemies")
+local WeaponName = "Cid"
+
+local QuestCFrame = CFrame.new(13.1016293, 162.07843, -31.504425, 0.122840285, 0, -0.992426515, 0, 1, 0, 0.992426515, 0, 0.122840285)
+
+-- แปลงชื่อเควส -> บอส
+local questToBoss = {
+    ["Mission Ryomen Sukuna"] = "Ryomen Sukuna [Level 1000]",
+    ["Mission Rudo Surebrec"] = "Rudo Surebrec [Level 1000]",
+    ["Mission Satoru Gojo"] = "Satoru Gojo [Level 1000]",
+    ["Mission Sosuke Aizen"] = "Sosuke Aizen [Level 1000]",
+    ["Mission Cid Kagenou"] = "Cid Kagenou [Level 1000]",
+    ["Mission Turbo Granny"] = "Turbo Granny [Level 1000]"
+}
+
+local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Events"):WaitForChild("Input")
+
+-- ==================== UI ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoBotGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 150)
+mainFrame.Position = UDim2.new(0, 50, 0, 50)
+mainFrame.BackgroundColor3 = Color3.fromRGB(255,255,255)
+mainFrame.BackgroundTransparency = 0.9
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local uICorner = Instance.new("UICorner")
+uICorner.CornerRadius = UDim.new(0, 20)
+uICorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(255,255,255)
+uiStroke.Thickness = 2
+uiStroke.Transparency = 0.5
+uiStroke.Parent = mainFrame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -20, 0, 40)
+title.Position = UDim2.new(0, 10, 0, 10)
+title.BackgroundTransparency = 1
+title.Text = "Diverse piece"
+title.TextColor3 = Color3.fromRGB(0,0,0)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
+
+-- ==================== ปุ่มเปิด/ปิด ====================
+getgenv().AutoBotEnabled = false
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(1, -20, 0, 40)
+button.Position = UDim2.new(0, 10, 0, 70)
+button.BackgroundColor3 = Color3.fromRGB(255,255,255)
+button.BackgroundTransparency = 0.7
+button.TextColor3 = Color3.fromRGB(0,0,0)
+button.Font = Enum.Font.Gotham
+button.TextSize = 16
+button.Text = "Auto Farm 🔴"
+
+local uICornerBtn = Instance.new("UICorner")
+uICornerBtn.CornerRadius = UDim.new(0,12)
+uICornerBtn.Parent = button
+button.Parent = mainFrame
+
+button.MouseButton1Click:Connect(function()
+    getgenv().AutoBotEnabled = not getgenv().AutoBotEnabled
+    if getgenv().AutoBotEnabled then
+        button.Text = "Auto Farm 🟢"
+    else
+        button.Text = "Auto Farm 🔴"
+    end
+end)
+
+-- ==================== ฟังก์ชัน ====================
+local function EquipWithRemote(toolName)
+    local tool = player.Backpack:FindFirstChild(toolName) or player.Character:FindFirstChild(toolName)
+    if tool and tool:IsA("Tool") then
+        pcall(function()
+            remote:FireServer("Equip", tool)
+            player.Character.Humanoid:EquipTool(tool)
+        end)
+    end
+end
+
+local function useSkillRemote(skillKey)
+    local tool = player.Character and player.Character:FindFirstChild(WeaponName)
+    if not tool then return end
+    local args = { "Tool", tool, skillKey, player.Character.HumanoidRootPart.Position }
+    pcall(function()
+        remote:FireServer(unpack(args))
+    end)
+end
+
+local function teleportTo(cf)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = cf + Vector3.new(0,3,0)
+    end
+end
+
+local function isQuestGUIOpen()
+    local success, acceptBtn = pcall(function()
+        return player.PlayerGui.Display.Dialogue.Container.Main.ScrollingFrame:FindFirstChild("Choice_Yes!")
+    end)
+    return success and acceptBtn
+end
+
+local function getCurrentBoss()
+    for questName, bossName in pairs(questToBoss) do
+        local quest = player.Data.Quests.Main:FindFirstChild(questName)
+        if quest then
+            for _,v in pairs(workspaceEnemies:GetChildren()) do
+                if v.Name == bossName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                    return v
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ==================== Auto Haki ====================
+spawn(function()
+    while true do
+        task.wait(1)
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local char = workspace.Characters:FindFirstChild("pangAoife03")
+            if char and not char:FindFirstChild("Armament Haki") then
+                pcall(function()
+                    remote:FireServer("Armament Haki")
+                end)
+            end
+        end
+    end
+end)
+
+-- ==================== Auto Equip ====================
+spawn(function()
+    while true do
+        task.wait(1)
+        if player.Character then
+            EquipWithRemote(WeaponName)
+        end
+    end
+end)
+
+-- ==================== กด E อัตโนมัติ ====================
+spawn(function()
+    while true do
+        task.wait(0.5)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end
+end)
+
+-- ==================== รับเควสอัตโนมัติ ====================
+spawn(function()
+    while true do
+        task.wait(1)
+        local acceptButton = isQuestGUIOpen()
+        if acceptButton then
+            GuiService.SelectedObject = acceptButton
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+        end
+    end
+end)
+
+-- ==================== Auto Farm Boss ====================
+spawn(function()
+    while true do
+        if getgenv().AutoBotEnabled then
+            local boss = getCurrentBoss()
+            if boss and boss:FindFirstChild("HumanoidRootPart") then
+                repeat
+                    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        -- วาปรัวๆ
+                        hrp.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0,0,5)
+                        EquipWithRemote(WeaponName)
+                        -- ใช้สกิล Z → X → C → V
+                        useSkillRemote("Z")
+                        task.wait(0.1)
+                        useSkillRemote("X")
+                        task.wait(0.1)
+                        useSkillRemote("C")
+                        task.wait(0.1)
+                        useSkillRemote("V")
+                        task.wait(0.1)
+                    end
+                    task.wait(0.05)
+                until not boss or not boss:FindFirstChild("Humanoid") or boss.Humanoid.Health <= 0
+            else
+                -- วาปกลับจุดรับเควส
+                teleportTo(QuestCFrame)
+                task.wait(1)
+            end
+        else
+            task.wait(1)
+        end
+    end
+end)
